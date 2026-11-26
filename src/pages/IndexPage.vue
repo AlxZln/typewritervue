@@ -1,130 +1,128 @@
 <template>
-  <q-layout class="app-shell">
-    <q-page-container>
-      <q-page class="app-page">
-        <main :class="['workspace', `screen-${screen}`]">
-          <div v-if="screen !== 'result'" :class="['settings-wrap', { 'is-running': running }]">
-            <nav class="settings" aria-label="Настройки теста">
-              <div class="mode-options">
-                <q-btn flat no-caps :class="{ selected: mode === 'time' }" :aria-pressed="mode === 'time'"
-                  @click="changeMode('time')" icon="timer">Время</q-btn>
-                <q-btn flat no-caps :class="{ selected: mode === 'words' }" :aria-pressed="mode === 'words'"
-                  @click="changeMode('words')" icon="home">Слова</q-btn>
+  <div>
+    <div class="app-page">
+      <main :class="['workspace', `screen-${screen}`]">
+        <div v-if="screen !== 'result'" :class="['settings-wrap', { 'is-running': running }]">
+          <nav class="settings" aria-label="Настройки теста">
+            <div class="mode-options">
+              <q-btn flat no-caps :class="{ selected: mode === 'time' }" :aria-pressed="mode === 'time'"
+                @click="changeMode('time')" icon="timer">Время</q-btn>
+              <q-btn flat no-caps :class="{ selected: mode === 'words' }" :aria-pressed="mode === 'words'"
+                @click="changeMode('words')" icon="title">Слова</q-btn>
+            </div>
+            <span class="divider" />
+            <div class="amount-options">
+              <q-btn v-for="value in presets" :key="value" flat no-caps :class="{ selected: amount === value }"
+                :aria-pressed="amount === value" :aria-label="`${value} ${amountLabel}`" @click="setAmount(value)">{{
+                  value }}</q-btn>
+              <q-btn flat class="custom-button" aria-label="Своё значение"
+                :class="{ selected: !presets.includes(amount) }" @click="openCustom" icon="tune">
+                <q-tooltip>Своё значение · слова или символы</q-tooltip></q-btn>
+            </div>
+          </nav>
+          <span v-if="unit === 'characters' && mode === 'words'" class="unit-caption">количество символов</span>
+        </div>
+
+        <section v-if="screen === 'start'" class="start-actions">
+          <q-btn unelevated no-caps class="button-primary start-button" @click="start()">Начать тест</q-btn>
+        </section>
+
+        <section v-if="screen === 'test'" class="test" aria-label="Тест скорости печати">
+          <div class="progress" aria-live="off">{{ progress }}</div>
+          <div :class="['typing-area', { unfocused: !focused }]" @click="focusInput">
+            <div ref="wordsViewport" class="words-viewport" aria-hidden="true">
+              <div class="words">
+                <span v-for="(word, wordIndex) in displayWords" :key="wordIndex"
+                  :class="['word', { 'word-error': word.hasError }]">
+                  <span v-if="word.extraSpaces" class="extra">{{ word.extraSpaces }}</span>
+                  <span v-for="(letter, letterIndex) in word.letters" :key="letterIndex"
+                    :class="['letter', letter.status, { caret: letter.hasCaret }]">{{ letter.character }}</span>
+                  <span v-for="(letter, extraIndex) in word.extraText" :key="`extra-${extraIndex}`"
+                    class="letter extra">{{ letter }}</span>
+                  <span v-if="word.hasEndCaret" class="caret end-caret" />
+                </span>
               </div>
-              <span class="divider" />
-              <div class="amount-options">
-                <q-btn v-for="value in presets" :key="value" flat no-caps :class="{ selected: amount === value }"
-                  :aria-pressed="amount === value" :aria-label="`${value} ${amountLabel}`" @click="setAmount(value)">{{
-                    value }}</q-btn>
-                <q-btn flat class="custom-button" aria-label="Своё значение"
-                  :class="{ selected: !presets.includes(amount) }" @click="openCustom" icon="tune">
-                  <q-tooltip>Своё значение · слова или символы</q-tooltip></q-btn>
-              </div>
-            </nav>
-            <span v-if="unit === 'characters' && mode === 'words'" class="unit-caption">количество символов</span>
+            </div>
+            <textarea ref="typingInput" class="typing-input" aria-label="Введите текст теста" :value="session.typedText"
+              autocomplete="off" autocapitalize="off" :spellcheck="false" @input="onInput" @focus="focused = true"
+              @blur="focused = false" @paste.prevent @drop.prevent @keydown.enter.prevent @keydown.end.prevent
+              @keydown.home.prevent @keydown.left.prevent @keydown.right.prevent @keydown.up.prevent
+              @keydown.down.prevent @keydown.esc.prevent="typingInput.blur()" @select="
+                typingInput.setSelectionRange(
+                  session.typedText.length,
+                  session.typedText.length,
+                )
+                " />
+            <button v-if="!focused" class="focus-prompt" @click="focusInput">
+              Нажмите здесь, чтобы продолжить
+            </button>
           </div>
-
-          <section v-if="screen === 'start'" class="start-actions">
-            <q-btn unelevated no-caps class="button-primary start-button" @click="start()">Начать тест</q-btn>
-          </section>
-
-          <section v-if="screen === 'test'" class="test" aria-label="Тест скорости печати">
-            <div class="progress" aria-live="off">{{ progress }}</div>
-            <div :class="['typing-area', { unfocused: !focused }]" @click="focusInput">
-              <div ref="wordsViewport" class="words-viewport" aria-hidden="true">
-                <div class="words">
-                  <span v-for="(word, wordIndex) in displayWords" :key="wordIndex"
-                    :class="['word', { 'word-error': word.hasError }]">
-                    <span v-if="word.extraSpaces" class="extra">{{ word.extraSpaces }}</span>
-                    <span v-for="(letter, letterIndex) in word.letters" :key="letterIndex"
-                      :class="['letter', letter.status, { caret: letter.hasCaret }]">{{ letter.character }}</span>
-                    <span v-for="(letter, extraIndex) in word.extraText" :key="`extra-${extraIndex}`"
-                      class="letter extra">{{ letter }}</span>
-                    <span v-if="word.hasEndCaret" class="caret end-caret" />
-                  </span>
-                </div>
-              </div>
-              <textarea ref="typingInput" class="typing-input" aria-label="Введите текст теста"
-                :value="session.typedText" autocomplete="off" autocapitalize="off" :spellcheck="false" @input="onInput"
-                @focus="focused = true" @blur="focused = false" @paste.prevent @drop.prevent @keydown.enter.prevent
-                @keydown.end.prevent @keydown.home.prevent @keydown.left.prevent @keydown.right.prevent
-                @keydown.up.prevent @keydown.down.prevent @keydown.esc.prevent="typingInput.blur()" @select="
-                  typingInput.setSelectionRange(
-                    session.typedText.length,
-                    session.typedText.length,
-                  )
-                  " />
-              <button v-if="!focused" class="focus-prompt" @click="focusInput">
-                Нажмите здесь, чтобы продолжить
-              </button>
-            </div>
-            <div class="test-actions">
-              <q-btn unelevated no-caps class="button-secondary" @click="start(false)">Заново</q-btn>
-            </div>
-            <p v-if="session.startedAt === null" class="typing-hint">
-              Начните печатать, чтобы запустить тест
-            </p>
-          </section>
-
-          <section v-if="screen === 'result'" class="results" aria-label="Результаты теста" aria-live="polite">
-            <dl class="stats">
-              <div>
-                <dt>тип теста</dt>
-                <dd>
-                  {{ testTypeLabel }}
-                  {{ amount }}
-                </dd>
-              </div>
-              <div>
-                <dt><abbr title="Символов в минуту">cpm</abbr></dt>
-                <dd>{{ result.cpm }}</dd>
-              </div>
-              <div>
-                <dt>точность</dt>
-                <dd>{{ result.accuracy }}%</dd>
-              </div>
-              <div>
-                <dt>символы</dt>
-                <dd>{{ result.characters }}</dd>
-              </div>
-              <div>
-                <dt>ошибки</dt>
-                <dd>{{ result.errors }}</dd>
-              </div>
-            </dl>
-            <div class="result-actions">
-              <q-btn unelevated no-caps class="button-primary" @click="start()">Заново</q-btn>
-            </div>
-            <q-btn flat no-caps class="change-settings" @click="screen = 'start'">Изменить настройки</q-btn>
-          </section>
-        </main>
-      </q-page>
-    </q-page-container>
-
-    <q-dialog v-model="customOpen" @hide="screen === 'test' && focusInput()">
-      <q-card class="custom-dialog">
-        <form @submit.prevent="applyCustom">
-          <h1>Настройки теста</h1>
-          <label v-if="mode === 'words'" class="custom-label" for="count-unit">Объём текста</label>
-          <select v-if="mode === 'words'" id="count-unit" v-model="customUnit">
-            <option value="words">Количество слов</option>
-            <option value="characters">Количество символов</option>
-          </select>
-          <label class="custom-label" for="custom-amount">{{ customAmountLabel }}</label>
-          <input id="custom-amount" v-model.number="customValue" type="number" min="1" :max="customLimit" autofocus
-            required />
-          <p class="custom-help">
-            От 1 до {{ customLimit }}<template v-if="mode === 'time'"> секунд</template>
+          <div class="test-actions">
+            <q-btn unelevated no-caps class="button-secondary" @click="start(false)">Заново</q-btn>
+          </div>
+          <p v-if="session.startedAt === null" class="typing-hint">
+            Начните печатать, чтобы запустить тест
           </p>
-          <div class="dialog-actions">
-            <q-btn flat no-caps label="Отмена" @click="customOpen = false" /><q-btn unelevated no-caps type="submit"
-              class="button-primary" label="Применить" :disable="!customValid" />
-          </div>
-        </form>
-      </q-card>
-    </q-dialog>
+        </section>
 
-  </q-layout>
+        <section v-if="screen === 'result'" class="results" aria-label="Результаты теста" aria-live="polite">
+          <dl class="stats">
+            <div>
+              <dt>тип теста</dt>
+              <dd>
+                {{ testTypeLabel }}
+                {{ amount }}
+              </dd>
+            </div>
+            <div>
+              <dt><abbr title="Символов в минуту">cpm</abbr></dt>
+              <dd>{{ result.cpm }}</dd>
+            </div>
+            <div>
+              <dt>точность</dt>
+              <dd>{{ result.accuracy }}%</dd>
+            </div>
+            <div>
+              <dt>символы</dt>
+              <dd>{{ result.characters }}</dd>
+            </div>
+            <div>
+              <dt>ошибки</dt>
+              <dd>{{ result.errors }}</dd>
+            </div>
+          </dl>
+          <div class="result-actions">
+            <q-btn unelevated no-caps class="button-primary" @click="start()">Заново</q-btn>
+          </div>
+          <q-btn flat no-caps class="change-settings" @click="screen = 'start'">Изменить настройки</q-btn>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <q-dialog v-model="customOpen" @hide="screen === 'test' && focusInput()">
+    <q-card class="custom-dialog">
+      <form @submit.prevent="applyCustom">
+        <h1>Настройки теста</h1>
+        <label v-if="mode === 'words'" class="custom-label" for="count-unit">Объём текста</label>
+        <select v-if="mode === 'words'" id="count-unit" v-model="customUnit">
+          <option value="words">Количество слов</option>
+          <option value="characters">Количество символов</option>
+        </select>
+        <label class="custom-label" for="custom-amount">{{ customAmountLabel }}</label>
+        <input id="custom-amount" v-model.number="customValue" type="number" min="1" :max="customLimit" autofocus
+          required />
+        <p class="custom-help">
+          От 1 до {{ customLimit }}<template v-if="mode === 'time'"> секунд</template>
+        </p>
+        <div class="dialog-actions">
+          <q-btn flat no-caps label="Отмена" @click="customOpen = false" /><q-btn unelevated no-caps type="submit"
+            class="button-primary" label="Применить" :disable="!customValid" />
+        </div>
+      </form>
+    </q-card>
+  </q-dialog>
+
 </template>
 
 

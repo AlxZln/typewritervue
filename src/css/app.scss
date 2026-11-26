@@ -30,7 +30,7 @@ button {
   color: #bcbcc0;
 }
 .app-page {
-  min-height: 100svh !important;
+  height: calc(100vh - 60px) !important;
   padding: 0 40px;
 }
 .brand {
